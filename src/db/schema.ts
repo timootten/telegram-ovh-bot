@@ -37,7 +37,14 @@ export const subscriptions = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("uniq_sub").on(t.telegramUserId, t.country, t.brand, t.planId),
+    uniqueIndex("uniq_sub").on(
+      t.telegramUserId,
+      t.country,
+      t.brand,
+      t.planId,
+      t.memory,
+      t.disk,
+    ),
     index("poll_idx").on(t.country, t.brand),
   ],
 );
