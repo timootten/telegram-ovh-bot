@@ -17,6 +17,8 @@ export interface CachedServerItem {
   cpu: string;
   brand: "kimsufi" | "soyoustart" | "ovh";
   memory: string;
+  ramCode?: string;
+  ramPattern?: string;
   disk: string;
   storageCode?: string;
   storagePattern?: string;
@@ -317,12 +319,6 @@ class OvhService {
           cpu = `${brandName} ${plan.blobs.technical.cpu.model}`.trim();
         }
 
-        // Extract RAM
-        const ramFamily = plan.addonFamilies.find((f) => f.name === "memory");
-        const ramCode = ramFamily?.default || ramFamily?.addons?.[0];
-        const ramAddon = ramCode ? addonMap.get(ramCode) : undefined;
-        const memory = ramAddon?.invoiceName || ramCode || "Standard RAM";
-
         // Extract base pricing (including tax / MwSt.)
         const renewPricing =
           plan.pricings.find(
@@ -359,6 +355,16 @@ class OvhService {
             ? Array.from(supportedCountries)
             : Array.from(newCountries.keys());
 
+        // Extract ALL distinct RAM options for this plan
+        const ramFamily = plan.addonFamilies.find((f) => f.name === "memory");
+        const ramList: string[] = ramFamily?.addons?.length
+          ? ramFamily.addons
+          : [ramFamily?.default].filter((r): r is string => Boolean(r));
+
+        if (ramList.length === 0) {
+          ramList.push("Standard RAM");
+        }
+
         // Extract ALL distinct storage options for this plan
         const storageFamily = plan.addonFamilies.find(
           (f) => f.name === "storage",
@@ -371,50 +377,69 @@ class OvhService {
           diskList.push("Standard Storage");
         }
 
-        for (const diskCode of diskList) {
-          const diskAddon = addonMap.get(diskCode);
-          const disk = diskAddon?.invoiceName || diskCode;
-
-          const diskRenew = diskAddon?.pricings?.find(
+        for (const ramCode of ramList) {
+          const ramAddon = addonMap.get(ramCode);
+          const memory = ramAddon?.invoiceName || ramCode;
+          const ramRenew = ramAddon?.pricings?.find(
             (pr) =>
               pr.capacities.includes("renew") &&
               pr.intervalUnit === "month" &&
               pr.commitment === 0,
           );
-          const diskPrice = diskRenew
-            ? (diskRenew.price + (diskRenew.tax || 0)) / 100_000_000
+          const ramPrice = ramRenew
+            ? (ramRenew.price + (ramRenew.tax || 0)) / 100_000_000
             : 0;
-          const totalRawPrice =
-            Math.round((baseRawPrice + diskPrice) * 100) / 100;
-          const price = `${totalRawPrice.toFixed(2)} €`;
+          const ramPattern = ramCode
+            .replace(/-\d\d[a-z]+.*$/, "")
+            .replace(/-v\d+.*$/, "");
 
-          // Pattern to match against availability API (e.g. "softraid-2x450nvme", "softraid-2x2000sa")
-          const storagePattern = diskCode
-            .replace(/-24sk\d+.*$/, "")
-            .replace(/-25sk\d+.*$/, "")
-            .replace(/-26sk\d+.*$/, "")
-            .replace(/-24sys\d+.*$/, "")
-            .replace(/-24adv\d+.*$/, "");
+          for (const diskCode of diskList) {
+            const diskAddon = addonMap.get(diskCode);
+            const disk = diskAddon?.invoiceName || diskCode;
 
-          const uniqueKey = `${commercialName}__${memory}__${disk}`;
+            const diskRenew = diskAddon?.pricings?.find(
+              (pr) =>
+                pr.capacities.includes("renew") &&
+                pr.intervalUnit === "month" &&
+                pr.commitment === 0,
+            );
+            const diskPrice = diskRenew
+              ? (diskRenew.price + (diskRenew.tax || 0)) / 100_000_000
+              : 0;
+            const totalRawPrice =
+              Math.round((baseRawPrice + ramPrice + diskPrice) * 100) / 100;
+            const price = `${totalRawPrice.toFixed(2)} €`;
 
-          if (!newServersCache.has(uniqueKey)) {
-            newServersCache.set(uniqueKey, {
-              id: uniqueKey,
-              planId: plan.planCode,
-              name: commercialName,
-              cpu,
-              brand,
-              memory,
-              disk,
-              storageCode: diskCode,
-              storagePattern,
-              price,
-              rawPrice: totalRawPrice,
-              currency: ecoCatalog?.locale?.currencyCode || "EUR",
-              supportedDatacenters: supportedDcs,
-              supportedCountries: finalSupportedCountries,
-            });
+            // Pattern to match against availability API (e.g. "softraid-2x450nvme", "softraid-2x2000sa")
+            const storagePattern = diskCode
+              .replace(/-24sk\d+.*$/, "")
+              .replace(/-25sk\d+.*$/, "")
+              .replace(/-26sk\d+.*$/, "")
+              .replace(/-24sys\d+.*$/, "")
+              .replace(/-24adv\d+.*$/, "");
+
+            const uniqueKey = `${commercialName}__${memory}__${disk}`;
+
+            if (!newServersCache.has(uniqueKey)) {
+              newServersCache.set(uniqueKey, {
+                id: uniqueKey,
+                planId: plan.planCode,
+                name: commercialName,
+                cpu,
+                brand,
+                memory,
+                ramCode,
+                ramPattern,
+                disk,
+                storageCode: diskCode,
+                storagePattern,
+                price,
+                rawPrice: totalRawPrice,
+                currency: ecoCatalog?.locale?.currencyCode || "EUR",
+                supportedDatacenters: supportedDcs,
+                supportedCountries: finalSupportedCountries,
+              });
+            }
           }
         }
       }

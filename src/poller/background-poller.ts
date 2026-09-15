@@ -99,6 +99,17 @@ export async function runPollingCycle(bot: Bot): Promise<void> {
       // Find any datacenter in this subscription's country with stock
       const matchedDatacenters: string[] = [];
 
+      // Extract RAM pattern from sub.memory (e.g. 64GB -> 64g, 32GB -> 32g)
+      const mLower = sub.memory.toLowerCase();
+      let ramPattern = "";
+      if (mLower.includes("64gb") || mLower.includes("64g")) ramPattern = "64g";
+      else if (mLower.includes("32gb") || mLower.includes("32g"))
+        ramPattern = "32g";
+      else if (mLower.includes("16gb") || mLower.includes("16g"))
+        ramPattern = "16g";
+      else if (mLower.includes("128gb") || mLower.includes("128g"))
+        ramPattern = "128g";
+
       // Extract storage pattern from sub.disk (e.g. 2x 450Gb SSD NVMe -> 2x450nvme)
       const dLower = sub.disk.toLowerCase();
       let storagePattern = "";
@@ -115,6 +126,10 @@ export async function runPollingCycle(bot: Bot): Promise<void> {
         storagePattern = "960nvme";
 
       for (const item of items) {
+        if (ramPattern && !item.memory.toLowerCase().includes(ramPattern)) {
+          continue;
+        }
+
         if (
           storagePattern &&
           !item.storage.toLowerCase().includes(storagePattern)

@@ -132,6 +132,8 @@ async function renderStep3(ctx: Context, chatId: number) {
         cpu: s.cpu,
         brand: s.brand,
         memory: s.memory,
+        ramCode: s.ramCode,
+        ramPattern: s.ramPattern,
         disk: s.disk,
         storageCode: s.storageCode,
         storagePattern: s.storagePattern,
@@ -144,11 +146,20 @@ async function renderStep3(ctx: Context, chatId: number) {
         if (!draft.countries.has(sub.country)) return false;
         const subDisk = sub.disk.toLowerCase().replace(/\s+/g, "");
         const serverDisk = s.disk.toLowerCase().replace(/\s+/g, "");
-        return (
+        const diskMatch =
           subDisk.includes(serverDisk) ||
           serverDisk.includes(subDisk) ||
-          (s.storagePattern && subDisk.includes(s.storagePattern.toLowerCase()))
-        );
+          (s.storagePattern &&
+            subDisk.includes(s.storagePattern.toLowerCase()));
+
+        const subMem = sub.memory.toLowerCase();
+        const serverMem = s.memory.toLowerCase();
+        const memMatch =
+          (s.ramPattern && subMem.includes(s.ramPattern)) ||
+          subMem.includes(serverMem) ||
+          serverMem.includes(subMem);
+
+        return diskMatch && memMatch;
       });
 
       if (isAlreadySubscribed) {
@@ -212,6 +223,14 @@ async function renderStep3(ctx: Context, chatId: number) {
 
     if (items) {
       for (const it of items) {
+        // If variant has ramPattern (e.g. ram-64g, ram-32g), match it specifically!
+        if (
+          server.ramPattern &&
+          !it.memory.toLowerCase().includes(server.ramPattern.toLowerCase())
+        ) {
+          continue;
+        }
+
         // If variant has storagePattern (e.g. softraid-2x450nvme), match it specifically!
         if (
           server.storagePattern &&
@@ -264,12 +283,20 @@ async function renderStep3(ctx: Context, chatId: number) {
       if (!draft.countries.has(sub.country)) return false;
       const subDisk = sub.disk.toLowerCase().replace(/\s+/g, "");
       const serverDisk = server.disk.toLowerCase().replace(/\s+/g, "");
-      return (
+      const diskMatch =
         subDisk.includes(serverDisk) ||
         serverDisk.includes(subDisk) ||
         (server.storagePattern &&
-          subDisk.includes(server.storagePattern.toLowerCase()))
-      );
+          subDisk.includes(server.storagePattern.toLowerCase()));
+
+      const subMem = sub.memory.toLowerCase();
+      const serverMem = server.memory.toLowerCase();
+      const memMatch =
+        (server.ramPattern && subMem.includes(server.ramPattern)) ||
+        subMem.includes(serverMem) ||
+        serverMem.includes(subMem);
+
+      return diskMatch && memMatch;
     });
 
     const activeAlertTag = isAlreadySubscribed

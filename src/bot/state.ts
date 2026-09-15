@@ -5,6 +5,8 @@ export interface DraftServerMeta {
   cpu: string;
   brand: string;
   memory: string;
+  ramCode?: string;
+  ramPattern?: string;
   disk: string;
   storageCode?: string;
   storagePattern?: string;
