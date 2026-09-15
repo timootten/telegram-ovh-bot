@@ -355,10 +355,25 @@ async function renderStep4(ctx: Context, chatId: number) {
     .join(", ");
 
   const selectedServers = Array.from(draft.serverIndices)
-    .map((idx) => draft.serverCatalog.get(idx)?.name)
+    .map((idx) => {
+      const s = draft.serverCatalog.get(idx);
+      if (!s) return null;
+      const cleanDisk = s.disk
+        .replace(/Enterprise Class|Datacenter Class/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const cleanRam = s.memory
+        .replace(/Enterprise Class|Datacenter Class/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return `${s.name} (${cleanRam}, ${cleanDisk})`;
+    })
     .filter(Boolean);
 
-  const serversText = selectedServers.join(", ");
+  const serversText =
+    selectedServers.length > 0
+      ? "\n• " + selectedServers.join("\n• ")
+      : "Keine ausgewählt";
 
   const text =
     `Zusammenfassung deiner Notification:\n` +
